@@ -2,12 +2,22 @@
 
 /* Classes */
 const Game = require('./game');
+const debug = false;
 
 /* Global variables */
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
 var image = new Image();
+var blip = new Audio();
+blip.src = 'assets/blip.wav';
+var flip = new Audio();
+flip.src = 'assets/flip.wav';
+var wrong = new Audio();
+wrong.src = 'assets/wrong.wav';
+var correct = new Audio();
+correct.src = 'assets/correct.wav';
 image.src = 'assets/animals.png';
+var timer = 0;
 
 // We have 9 pairs of possible cards that are about 212px square
 var cards = [0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8];
@@ -22,40 +32,43 @@ var scores = [0,0];
 var player = 0;
 var card1;
 var card2;
+var currentIndex, currentX, currentY;
+
+canvas.onclick = function(event){
+  event.preventDefault();
+  switch(state){
+    case "waiting for click 1":
+    if(!board[currentIndex] || board[currentIndex].flip) return blip.play();
+    card1 = board[currentIndex];
+    card1.flip = true;
+    flip.play();
+    state = "waiting for click 2"
+    break;
+    case "waiting for click 2":
+    if(!board[currentIndex] || board[currentIndex].flip) return blip.play();
+    card2 = board[currentIndex];
+    card2.flip = true;
+    flip.play();
+    state = "waiting ..."
+    timer = 0;
+    break;
+  }
+}
 
 // TODO: Place the cards on the board in random order
-
-canvas.onclick = function(event) {
+canvas.onmousemove = function(event){
   event.preventDefault();
-  var x = Math.floor((event.clientX - 3) / 165);
-  var y = Math.floor((event.clientY - 3) / 165);
-  var card = board[y * 6 + x];
-  if(!card || card.flip) return;
-  card.flip = true;
-  switch (expression) {
-    case "waiting for click 1":
-      card1 = card;
-      state = "waiting for click 2";
-      break;
-    case "waiting for click 2":
-      card2 = card;
-      state = "waiting for timer";
-      setTimeout(function(){
-        if(card1.card == card.card){
-          scores[player]++;
-        } else{
-          card1.flip = false;
-          card.flip = false;
-          player = +!player;
-        }
-        state = "waiting for click 1";
-      }, 3000);
-      break;
-
-  }
-  // TODO: determine which card was clicked on
-  // TODO: determine what to do
+  currentX = event.offsetX;
+  currentY = event.offsetY;
+  var x = Math.floor((currentX + 3) / 165);
+  var y = Math.floor((currentY + 3) / 165);
+  currentIndex = y * 6 + x;
 }
+
+canvas.oncontextmenu = function(event){
+  event.preventDefault();
+}
+
 
 /**
  * @function masterLoop
@@ -78,7 +91,19 @@ masterLoop(performance.now());
  * the number of milliseconds passed since the last frame.
  */
 function update(elapsedTime) {
-
+  if(state == "waiting ..."){
+    timer += elapsedTime;
+    if(timer > 1300){
+      if(card1.card == card2.card){
+        correct.play();
+      } else {
+        wrong.play();
+        card1.flip = false;
+        card2.flip = false;
+      }
+      state = "waiting for click 1";
+    }
+  }
 }
 
 /**
@@ -112,4 +137,13 @@ function render(elapsedTime, ctx) {
     }
   }
 
+  if(debug){
+    var x = currentIndex % 6;
+    var y = Math.floor(currentIndex / 6);
+    ctx.strokeStyle = "#ff0000";
+    ctx.beginPath();
+    ctx.arc(currentX, currentY, 3, 0, 2*Math.PI);
+    ctx.rect(x * 165 + 3, y * 165 + 3, 163, 163);
+    ctx.stroke();
+  }
 }
